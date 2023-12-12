@@ -50,7 +50,7 @@ type AppState = Arc<RwLock<HashMap<String, Movie>>>;
 
 
 
-async fn post_handler(Json(movie): Json<Movie>,state: Extension<AppState>)-> Result<StatusCode, Infallible> {
+async fn post_handler(Json(movie): Json<Movie>,state: AppState)-> Result<StatusCode, Infallible> {
     state.write().unwrap().insert(movie.id.clone(), movie);
     Ok(StatusCode::CREATED)
 
@@ -65,7 +65,11 @@ async fn spawn_server(addr: SocketAddr){
 
 
     let app = Router::new()
-        .route("/movie", post(|_: State<M>|async {post_handler}))
+        .route("/movie", post({
+            let state = shared_state.clone();
+            move |movie| post_handler(movie, state)
+        }
+        ))
     
         .route("/movie{id}", get(get_handler))
         .layer(Extension(shared_state));
